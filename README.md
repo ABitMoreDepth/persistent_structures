@@ -2,6 +2,16 @@
 
 Collection of file-backed datastructures for use in python projects that require persistent data with familiar interfaces.
 
+
+Inspired by some of the content of Raymond Hettinger's talk at Pycon Russia: https://www.youtube.com/watch?v=S_ipdVNSFlo&t=783s.
+
+This package provides a dictionary interface to the host file system.  As described during his talk, the FSDict class provides a lazy wrapper around the host file system, whilst presenting a MutableMapping interface to python applications.  This implementation supports working with subdirectories, by passing an FSDict instance back for any subdirectories encountered.
+
+Currently tested only on 64bit linux.
+
+Coming soon:
+ - A similar interface to a file system, presented to python as a queue-like object, to allow python applications to easily make use of a persistent, disk backed queuing structure.
+
 ## Contributions
 
 This project is released under the MIT Licence. For more information, please see LICENSE.
