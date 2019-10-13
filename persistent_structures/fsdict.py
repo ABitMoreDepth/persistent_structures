@@ -1,12 +1,16 @@
-from collections.abc import MutableMapping
-from typing import Iterable
-
+"""Provides the FSDict module, implementing a MutableMapping interface atop the filesystem."""
 import os
+from collections.abc import MutableMapping
+from typing import Iterator, Union
 
 
-class FileDict(MutableMapping):
-    """ Implements a dictionary like entity which presents a directory of files
-    to python via a dict interface.
+class FSDict(MutableMapping):
+    """Implements a MutableMapping interface atop the filesystem.
+
+    Provides a dictionary like entity which presents a directory of files to
+    python via a dict interface.  Will return an FSDict to represent a
+    directory, if one is requested.  Behaviour is undefined if presented with a
+    symlink.
     """
 
     def __init__(self, directory: str = '.'):
@@ -21,37 +25,38 @@ class FileDict(MutableMapping):
             file_path = os.path.join(self.directory, k)
             with open(file_path, 'w') as file_handle:
                 file_handle.write(v)
-        except (OSError, IOError) as err:
+        except (OSError, IOError, ValueError, TypeError) as err:
             print("Encountered unexpected behaviour when storing key's value to disk.")
             raise KeyError("Unable to write file for {}".format(file_path)) from err
 
-    def __getitem__(self, k: str) -> str:
-        """Retrieve the contents of a file (the dict's value), for the given
-        key.  Raise a KeyError if the file cannot be found."""
+    def __getitem__(self, k: str) -> Union[str, bytes, 'FSDict']:
+        """Retrieve the contents of a file (the dict's value), for the given key.
+
+        Raise a KeyError if the file cannot be found.
+        """
         try:
             target = os.path.join(self.directory, k)
-            if not os.path.exists(target):
-                raise KeyError("{} doesn't exist.".format(target))
-
             if os.path.isfile(target):
                 with open(target) as file_handle:
                     return file_handle.read()
 
             elif os.path.isdir(target):
-                return FileDict(target)
+                return FSDict(target)
 
             else:
                 raise KeyError(
-                    "Unable to return file contents or a FileDict for {}".format(target)
+                    "Unable to return file contents or a FSDict for {}".format(target),
                 )
 
-        except FileNotFoundError as err:
-            raise KeyError from err
+        except (ValueError, TypeError) as err:
+            raise KeyError("{} doesn't exist.".format(target)) from err
 
     def __delitem__(self, k: str) -> None:
-        """Delete the file specified by the provided key (effectively removing
-        the key and its value from the dict).  Raise KeyError if the file
-        cannot be found."""
+        """Delete the file specified by the provided key.
+
+        (effectively removing the key and its value from the dict).  Raise
+        KeyError if the file cannot be found.
+        """
         try:
             os.remove(os.path.join(self.directory, k))
         except FileNotFoundError as err:
@@ -63,5 +68,9 @@ class FileDict(MutableMapping):
         # isn't needed in this method, which would add uneeded CPU cost.
         return len(os.listdir(self.directory))
 
-    def __iter__(self) -> Iterable[str]:
-        return (file.name for file in os.scandir(self.directory) if os.path.isfile(file))
+    def __iter__(self) -> Iterator[str]:
+        return (
+            file.name
+            for file in os.scandir(self.directory)
+            if any((os.path.isfile(file), os.path.isdir(file)))
+        )
